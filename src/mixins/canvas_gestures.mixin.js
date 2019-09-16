@@ -10,7 +10,7 @@
 (function() {
 
   var degreesToRadians = fabric.util.degreesToRadians,
-          radiansToDegrees = fabric.util.radiansToDegrees;
+      radiansToDegrees = fabric.util.radiansToDegrees;
 
   fabric.util.object.extend(fabric.Canvas.prototype, /** @lends fabric.Canvas.prototype */ {
     /**
@@ -48,12 +48,11 @@
       }
 
       var self = this.__gesturesParams.self,
-              t = this._currentTransform,
-              e = this.__gesturesParams.e;
+          t = this._currentTransform,
+          e = this.__gesturesParams.e;
 
       t.action = 'scale';
       t.originX = t.originY = 'center';
-      this._setOriginToCenter(t.target);
 
       this._scaleObjectBy(self.scale, e);
 
@@ -62,9 +61,7 @@
         this._rotateObjectByAngle(self.rotation, e);
       }
 
-      this._setCenterToOrigin(t.target);
-
-      this.renderAll();
+      this.requestRenderAll();
       t.action = 'drag';
     },
 
@@ -123,9 +120,9 @@
      */
     _scaleObjectBy: function(s, e) {
       var t = this._currentTransform,
-              target = t.target,
-              lockScalingX = target.get('lockScalingX'),
-              lockScalingY = target.get('lockScalingY');
+          target = t.target,
+          lockScalingX = target.get('lockScalingX'),
+          lockScalingY = target.get('lockScalingY');
 
       if (lockScalingX && lockScalingY) {
         return;
@@ -141,7 +138,11 @@
 
       target.setPositionByOrigin(constraintPosition, t.originX, t.originY);
 
-      this._fire('scaling', target, e);
+      this._fire('scaling', {
+        target: target,
+        e: e,
+        transform: t,
+      });
     },
 
     /**
@@ -155,8 +156,12 @@
       if (t.target.get('lockRotation')) {
         return;
       }
-      t.target.angle = radiansToDegrees(degreesToRadians(curAngle) + t.theta);
-      this._fire('rotating', t.target, e);
+      t.target.rotate(radiansToDegrees(degreesToRadians(curAngle) + t.theta));
+      this._fire('rotating', {
+        target: t.target,
+        e: e,
+        transform: t,
+      });
     }
   });
 })();

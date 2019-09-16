@@ -1,9 +1,6 @@
 (function() {
 
-  var arcToSegmentsCache = { },
-      segmentToBezierCache = { },
-      boundsOfCurveCache = { },
-      _join = Array.prototype.join;
+  var _join = Array.prototype.join;
 
   /* Adapted from http://dxr.mozilla.org/mozilla-central/source/content/svg/content/src/nsSVGPathDataParser.cpp
    * by Andrea Bogazzi code is under MPL. if you don't have a copy of the license you can take it here
@@ -11,13 +8,13 @@
    */
   function arcToSegments(toX, toY, rx, ry, large, sweep, rotateX) {
     var argsString = _join.call(arguments);
-    if (arcToSegmentsCache[argsString]) {
-      return arcToSegmentsCache[argsString];
+    if (fabric.arcToSegmentsCache[argsString]) {
+      return fabric.arcToSegmentsCache[argsString];
     }
 
     var PI = Math.PI, th = rotateX * PI / 180,
-        sinTh = Math.sin(th),
-        cosTh = Math.cos(th),
+        sinTh = fabric.util.sin(th),
+        cosTh = fabric.util.cos(th),
         fromX = 0, fromY = 0;
 
     rx = Math.abs(rx);
@@ -30,13 +27,13 @@
         root = 0;
 
     if (pl < 0) {
-      var s = Math.sqrt(1 - pl/(rx2 * ry2));
+      var s = Math.sqrt(1 - pl / (rx2 * ry2));
       rx *= s;
       ry *= s;
     }
     else {
       root = (large === sweep ? -1.0 : 1.0) *
-              Math.sqrt( pl /(rx2 * py2 + ry2 * px2));
+              Math.sqrt( pl / (rx2 * py2 + ry2 * px2));
     }
 
     var cx = root * rx * py / ry,
@@ -66,33 +63,27 @@
       mTheta = th3;
       th3 += mDelta;
     }
-    arcToSegmentsCache[argsString] = result;
+    fabric.arcToSegmentsCache[argsString] = result;
     return result;
   }
 
   function segmentToBezier(th2, th3, cosTh, sinTh, rx, ry, cx1, cy1, mT, fromX, fromY) {
-    var argsString2 = _join.call(arguments);
-    if (segmentToBezierCache[argsString2]) {
-      return segmentToBezierCache[argsString2];
-    }
-
-    var costh2 = Math.cos(th2),
-        sinth2 = Math.sin(th2),
-        costh3 = Math.cos(th3),
-        sinth3 = Math.sin(th3),
+    var costh2 = fabric.util.cos(th2),
+        sinth2 = fabric.util.sin(th2),
+        costh3 = fabric.util.cos(th3),
+        sinth3 = fabric.util.sin(th3),
         toX = cosTh * rx * costh3 - sinTh * ry * sinth3 + cx1,
         toY = sinTh * rx * costh3 + cosTh * ry * sinth3 + cy1,
-        cp1X = fromX + mT * ( - cosTh * rx * sinth2 - sinTh * ry * costh2),
-        cp1Y = fromY + mT * ( - sinTh * rx * sinth2 + cosTh * ry * costh2),
+        cp1X = fromX + mT * ( -cosTh * rx * sinth2 - sinTh * ry * costh2),
+        cp1Y = fromY + mT * ( -sinTh * rx * sinth2 + cosTh * ry * costh2),
         cp2X = toX + mT * ( cosTh * rx * sinth3 + sinTh * ry * costh3),
         cp2Y = toY + mT * ( sinTh * rx * sinth3 - cosTh * ry * costh3);
 
-    segmentToBezierCache[argsString2] = [
+    return [
       cp1X, cp1Y,
       cp2X, cp2Y,
       toX, toY
     ];
-    return segmentToBezierCache[argsString2];
   }
 
   /*
@@ -124,7 +115,7 @@
         sweep = coords[4],
         tx = coords[5],
         ty = coords[6],
-        segs = [[ ], [ ], [ ], [ ]],
+        segs = [[], [], [], []],
         segsNorm = arcToSegments(tx - fx, ty - fy, rx, ry, large, sweep, rot);
 
     for (var i = 0, len = segsNorm.length; i < len; i++) {
@@ -152,18 +143,13 @@
    */
   fabric.util.getBoundsOfArc = function(fx, fy, rx, ry, rot, large, sweep, tx, ty) {
 
-    var fromX = 0, fromY = 0, bound = [ ], bounds = [ ],
-    segs = arcToSegments(tx - fx, ty - fy, rx, ry, large, sweep, rot),
-    boundCopy = [[ ], [ ]];
+    var fromX = 0, fromY = 0, bound, bounds = [],
+        segs = arcToSegments(tx - fx, ty - fy, rx, ry, large, sweep, rot);
 
     for (var i = 0, len = segs.length; i < len; i++) {
       bound = getBoundsOfCurve(fromX, fromY, segs[i][0], segs[i][1], segs[i][2], segs[i][3], segs[i][4], segs[i][5]);
-      boundCopy[0].x = bound[0].x + fx;
-      boundCopy[0].y = bound[0].y + fy;
-      boundCopy[1].x = bound[1].x + fx;
-      boundCopy[1].y = bound[1].y + fy;
-      bounds.push(boundCopy[0]);
-      bounds.push(boundCopy[1]);
+      bounds.push({ x: bound[0].x + fx, y: bound[0].y + fy });
+      bounds.push({ x: bound[1].x + fx, y: bound[1].y + fy });
       fromX = segs[i][4];
       fromY = segs[i][5];
     }
@@ -183,15 +169,18 @@
    */
   // taken from http://jsbin.com/ivomiq/56/edit  no credits available for that.
   function getBoundsOfCurve(x0, y0, x1, y1, x2, y2, x3, y3) {
-    var argsString = _join.call(arguments);
-    if (boundsOfCurveCache[argsString]) {
-      return boundsOfCurveCache[argsString];
+    var argsString;
+    if (fabric.cachesBoundsOfCurve) {
+      argsString = _join.call(arguments);
+      if (fabric.boundsOfCurveCache[argsString]) {
+        return fabric.boundsOfCurveCache[argsString];
+      }
     }
 
     var sqrt = Math.sqrt,
         min = Math.min, max = Math.max,
-        abs = Math.abs, tvalues = [ ],
-        bounds = [[ ], [ ]],
+        abs = Math.abs, tvalues = [],
+        bounds = [[], []],
         a, b, c, t, t1, t2, b2ac, sqrtb2ac;
 
     b = 6 * x0 - 12 * x1 + 6 * x2;
@@ -255,7 +244,9 @@
         y: max.apply(null, bounds[1])
       }
     ];
-    boundsOfCurveCache[argsString] = result;
+    if (fabric.cachesBoundsOfCurve) {
+      fabric.boundsOfCurveCache[argsString] = result;
+    }
     return result;
   }
 
